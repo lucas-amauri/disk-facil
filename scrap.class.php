@@ -15,7 +15,7 @@ class Scrap {
      * HTTP Request timeout
      * @var int
      */
-    private $timeout = 5;
+    private $timeout = 15;
 
     private $filename = "./diskfacil.csv";
 
@@ -41,6 +41,19 @@ class Scrap {
      * CSV File pointer
      */
     private $csv;
+
+    private $file_page_control = "./page.txt";
+
+    private $page = 1;
+
+    public function __construct() {
+        if (file_exists($this->file_page_control)) {
+            $json = json_decode(file_get_contents($this->file_page_control), true);
+
+            $this->page = $json["page"];
+            $this->length = $json["length"];
+        }
+    }
     
     public function setTimeout($timeout) {
         $this->timeout = $timeout;
@@ -98,8 +111,9 @@ class Scrap {
 
             if ($auto_loop) {
                 if ($this->length) {
-                    sleep(5);
-                    
+                    $this->saveState(1);
+                    sleep(20);
+
                     // Loop on pages
                     for ($i = 2; $i <= $this->length; $i++) {
                         $responsePage = $this->client->request('GET', $this->estado . "/" . $this->cidade . "?page=" . $i);
@@ -107,7 +121,9 @@ class Scrap {
                             $html = $responsePage->getBody()->getContents();
                             $this->download($html);
 
-                            sleep(5);
+                            $this->saveState($i);
+
+                            sleep(20);
                         }
                     }
                 }
@@ -200,6 +216,16 @@ class Scrap {
     }
 
     private function createCsv() {
-        $this->csv = fopen($this->filename, "w+");
+        $this->csv = fopen($this->filename, "a+");
+    }
+
+    private function saveState($_page) {
+        fwrite(
+            fopen($this->file_page_control, "w+"),
+            json_encode([
+                "length" => $this->length,
+                "page" => $_page
+            ])
+        );
     }
 }
